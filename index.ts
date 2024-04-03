@@ -33,42 +33,51 @@ interface QueryBody {
 server.post(
   "/query",
   async (request: FastifyRequest<{ Body: QueryBody }>, reply) => {
-    const { sql, params, method } = request.body;
-
-    // prevent multiple queries
-    const sqlBody = sql?.replace(/;/g, "");
-
     const db = await server.pg.connect();
 
-    if (method === "all") {
-      try {
-        const result = await db.query({
-          text: sqlBody,
-          values: params,
-          rowMode: "array",
-        });
-        // reply.send(result.rows);
-        return result.rows;
-      } catch (e) {
-        console.log("error from all query", e);
-        reply.status(500).send({ error: e });
-      }
-    } else if (method === "execute") {
-      try {
-        const result = await db.query({
-          text: sqlBody,
-          values: params,
-        });
+    try {
+      const { sql, params, method } = request.body;
 
-        console.log({ result }, "execute");
+      request.log.debug({ sql, params, method }, "request to /query");
 
-        reply.send(result.rows);
-      } catch (e) {
-        console.log("error from execute query", e);
-        reply.status(500).send({ error: e });
+      // prevent multiple queries
+      const sqlBody = sql?.replace(/;/g, "");
+
+      if (method === "all") {
+        try {
+          const result = await db.query({
+            text: sqlBody,
+            values: params,
+            rowMode: "array",
+          });
+          // reply.send(result.rows);
+          return result.rows;
+        } catch (e) {
+          console.log("error from all query", e);
+          reply.status(500).send({ error: e });
+        }
+      } else if (method === "execute") {
+        try {
+          const result = await db.query({
+            text: sqlBody,
+            values: params,
+          });
+
+          console.log({ result }, "execute");
+
+          reply.send(result.rows);
+        } catch (e) {
+          console.log("error from execute query", e);
+          reply.status(500).send({ error: e });
+        }
+      } else {
+        reply.status(500).send({ error: "Unknown method value" });
       }
-    } else {
-      reply.status(500).send({ error: "Unknown method value" });
+    } catch (e) {
+      console.log("error from /query", e);
+      reply.status(500).send({ error: e });
+    } finally {
+      db.release();
     }
   }
 );
