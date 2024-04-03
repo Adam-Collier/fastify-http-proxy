@@ -33,24 +33,20 @@ interface QueryBody {
 server.post(
   "/query",
   async (request: FastifyRequest<{ Body: QueryBody }>, reply) => {
-    const db = await server.pg.connect();
-
     try {
       const { sql, params, method } = request.body;
-
-      request.log.debug({ sql, params, method }, "request to /query");
 
       // prevent multiple queries
       const sqlBody = sql?.replace(/;/g, "");
 
       if (method === "all") {
         try {
-          const result = await db.query({
+          const result = await server.pg.query({
             text: sqlBody,
             values: params,
             rowMode: "array",
           });
-          // reply.send(result.rows);
+
           return result.rows;
         } catch (e) {
           console.log("error from all query", e);
@@ -58,14 +54,12 @@ server.post(
         }
       } else if (method === "execute") {
         try {
-          const result = await db.query({
+          const result = await server.pg.query({
             text: sqlBody,
             values: params,
           });
 
-          console.log({ result }, "execute");
-
-          reply.send(result.rows);
+          return result.rows;
         } catch (e) {
           console.log("error from execute query", e);
           reply.status(500).send({ error: e });
@@ -76,8 +70,6 @@ server.post(
     } catch (e) {
       console.log("error from /query", e);
       reply.status(500).send({ error: e });
-    } finally {
-      db.release();
     }
   }
 );
